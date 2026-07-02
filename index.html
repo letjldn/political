@@ -1,299 +1,160 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- ==========================================================================
+     VALUES & PRIORITIES ASSESSMENT — single-page application shell
+     ==========================================================================
+     Plain HTML + CSS + JS. No frameworks, no backend, no build step:
+     open this file directly in any browser and everything runs locally.
+
+     The page has three top-level screens, shown one at a time by app.js:
+
+       #screen-intro     — welcome text, start / resume buttons
+       #screen-question  — one question at a time, progress bar, back/next
+       #screen-results   — the full results dashboard
+
+     All question text, party data and scoring numbers live in config.js.
+     All mathematics lives in engine.js. All DOM behaviour lives in app.js.
+     ========================================================================== -->
+<html lang="en-GB">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Political Values Engine</title>
-
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #fff;
-      color: #111;
-    }
-
-    .container {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 32px 20px;
-    }
-
-    h1 {
-      font-size: 32px;
-      margin-bottom: 12px;
-    }
-
-    p {
-      line-height: 1.5;
-    }
-
-    button {
-      width: 100%;
-      padding: 14px;
-      margin: 8px 0;
-      border: 1px solid #111;
-      background: #fff;
-      color: #111;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 8px;
-    }
-
-    button:hover {
-      background: #111;
-      color: #fff;
-    }
-
-    .progress {
-      height: 8px;
-      background: #eee;
-      border-radius: 999px;
-      margin: 24px 0;
-      overflow: hidden;
-    }
-
-    .bar {
-      height: 100%;
-      background: #111;
-      width: 0%;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .result-card {
-      border: 1px solid #111;
-      padding: 20px;
-      border-radius: 12px;
-      margin-top: 20px;
-    }
-
-    .small {
-      font-size: 13px;
-      color: #555;
-    }
-  </style>
+  <meta name="description" content="A values and priorities self-assessment." />
+  <title>Values &amp; Priorities Assessment</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body>
-  <main class="container">
-    <section id="intro">
-      <h1>Political Values Engine</h1>
-      <p>
-        This is not a normal political quiz. It looks at what you actually value:
-        safety, fairness, freedom, affordability, trust and community.
-      </p>
-      <p class="small">This is not official voting advice.</p>
-      <button onclick="startQuiz()">Start</button>
-    </section>
 
-    <section id="quiz" class="hidden">
-      <p id="counter"></p>
-      <div class="progress">
-        <div class="bar" id="bar"></div>
+  <div class="container">
+
+    <!-- ================= INTRO SCREEN ================= -->
+    <section id="screen-intro" class="screen" aria-label="Introduction">
+      <header class="intro-header">
+        <h1 id="intro-heading"><!-- filled from CONFIG.ui --></h1>
+      </header>
+      <div id="intro-text" class="intro-text"><!-- paragraphs from CONFIG.ui --></div>
+      <div class="intro-actions">
+        <!-- The resume button only appears when autosaved progress exists. -->
+        <button id="btn-resume" class="btn btn-primary" hidden></button>
+        <button id="btn-start" class="btn btn-primary"></button>
+        <button id="btn-restart" class="btn btn-ghost" hidden></button>
       </div>
-      <h2 id="questionText"></h2>
-      <div id="answers"></div>
-      <button onclick="previousQuestion()">Back</button>
+      <p class="intro-note" id="keyboard-hint"></p>
     </section>
 
-    <section id="results" class="hidden">
-      <h1>Your Result</h1>
-      <div class="result-card">
-        <h2 id="bestMatch"></h2>
-        <p id="analysis"></p>
+    <!-- ================= QUESTION SCREEN ================= -->
+    <section id="screen-question" class="screen" hidden aria-label="Questionnaire">
+
+      <!-- Progress bar + question counter -->
+      <div class="progress-row">
+        <span id="question-counter" class="question-counter" aria-live="polite"></span>
       </div>
-      <button onclick="restart()">Restart</button>
-      <p class="small">This is an experimental tool and not official voting advice.</p>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="0" id="progress-track">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+
+      <!-- The question card. app.js swaps its content with a fade/slide
+           transition between questions. -->
+      <div id="question-card" class="question-card">
+        <p id="question-situation" class="question-situation" hidden></p>
+        <h2 id="question-text" class="question-text"></h2>
+        <div id="answer-area" class="answer-area"><!-- built per question type --></div>
+      </div>
+
+      <!-- Back / Next navigation -->
+      <div class="nav-row">
+        <button id="btn-back" class="btn btn-ghost" type="button"></button>
+        <button id="btn-next" class="btn btn-primary" type="button" disabled></button>
+      </div>
     </section>
-  </main>
 
-  <script>
-    const QUESTIONS = [
-      {
-        text: "A good government should make everyday life cheaper before anything else.",
-        axes: { COST: 1, FIS: 0.4 }
-      },
-      {
-        text: "Politicians should not be allowed to earn large amounts of money from second jobs.",
-        axes: { COR: 1, DEM: 0.5 }
-      },
-      {
-        text: "Feeling safe in your area is one of the most important parts of a good life.",
-        axes: { SAFE: 1, AUT: 0.3 }
-      },
-      {
-        text: "Homes should be treated more like places to live than investments.",
-        axes: { HOU: 1, EQ: 0.6 }
-      },
-      {
-        text: "A country can be diverse and still have a strong shared identity.",
-        axes: { CUL: 0.7, IMM: 0.6, NAT: -0.2 }
-      }
-    ];
+    <!-- ================= RESULTS SCREEN ================= -->
+    <section id="screen-results" class="screen" hidden aria-label="Results">
+      <header class="results-header">
+        <p class="results-kicker">Assessment complete</p>
+        <h1 id="results-heading"></h1>
+      </header>
 
-    const PARTIES = {
-      Green: {
-        profile: { COST: 0.8, COR: 0.9, SAFE: 0.6, HOU: 1, EQ: 1, CUL: 0.8, IMM: 0.7, NAT: -0.2 },
-        credibility: 0.95
-      },
-      Labour: {
-        profile: { COST: 0.7, COR: 0.4, SAFE: 0.7, HOU: 0.7, EQ: 0.6, CUL: 0.6, IMM: 0.4, NAT: 0.1 },
-        credibility: 0.85
-      },
-      LiberalDemocrat: {
-        profile: { COST: 0.5, COR: 0.8, SAFE: 0.5, HOU: 0.5, EQ: 0.4, CUL: 0.8, IMM: 0.7, NAT: -0.1 },
-        credibility: 0.9
-      },
-      Conservative: {
-        profile: { COST: 0.2, COR: -0.3, SAFE: 0.8, HOU: -0.2, EQ: -0.4, CUL: -0.2, IMM: -0.3, NAT: 0.7 },
-        credibility: 0.75
-      },
-      Reform: {
-        profile: { COST: 0.4, COR: 0.5, SAFE: 0.8, HOU: 0.1, EQ: -0.2, CUL: -0.6, IMM: -0.9, NAT: 0.9 },
-        credibility: 0.75
-      },
-      Nationalist: {
-        profile: { COST: 0.2, COR: 0.3, SAFE: 0.9, HOU: -0.1, EQ: -0.7, CUL: -0.9, IMM: -1, NAT: 1 },
-        credibility: 0.6
-      }
-    };
+      <!-- Best match + confidence -->
+      <div id="best-match" class="panel best-match"><!-- rendered by app.js --></div>
 
-    const ANSWERS = [
-      { label: "Strongly disagree", value: -1 },
-      { label: "Disagree", value: -0.66 },
-      { label: "Slightly disagree", value: -0.33 },
-      { label: "Neutral / unsure", value: 0 },
-      { label: "Slightly agree", value: 0.33 },
-      { label: "Agree", value: 0.66 },
-      { label: "Strongly agree", value: 1 }
-    ];
+      <!-- Top four party matches with percentages -->
+      <div class="panel">
+        <h2 class="panel-title">Top matches</h2>
+        <div id="match-list" class="match-list"></div>
+      </div>
 
-    let current = 0;
-    let responses = [];
+      <!-- Circular (horseshoe) political visualisation -->
+      <div class="panel">
+        <h2 class="panel-title">Where you sit on the political horseshoe</h2>
+        <p class="panel-note">The spectrum bends into a horseshoe: the far ends
+          of left and right curve towards each other, because political
+          extremes often converge in style and method. Your estimated position
+          is marked in black.</p>
+        <div id="horseshoe" class="viz-wrap"><!-- SVG injected by app.js --></div>
+      </div>
 
-    function startQuiz() {
-      document.getElementById("intro").classList.add("hidden");
-      document.getElementById("quiz").classList.remove("hidden");
-      showQuestion();
-    }
+      <!-- Political values profile: circular radar of all hidden axes -->
+      <div class="panel">
+        <h2 class="panel-title">Your political values profile</h2>
+        <p class="panel-note">These are the hidden dimensions the assessment
+          was measuring. Tap or click any axis label (or a row below) to read
+          what it means and where you landed.</p>
+        <div id="radar" class="viz-wrap"><!-- SVG injected by app.js --></div>
+        <div id="axis-list" class="axis-list"><!-- interactive axis rows --></div>
+      </div>
 
-    function showQuestion() {
-      const q = QUESTIONS[current];
+      <!-- Hidden psychological profile -->
+      <div class="panel">
+        <h2 class="panel-title">Your psychological profile</h2>
+        <div id="psychology" class="psych-list"></div>
+      </div>
 
-      document.getElementById("counter").innerText = `Question ${current + 1} of ${QUESTIONS.length}`;
-      document.getElementById("questionText").innerText = q.text;
-      document.getElementById("bar").style.width = `${((current + 1) / QUESTIONS.length) * 100}%`;
+      <!-- Key priorities + trade-offs -->
+      <div class="panel">
+        <h2 class="panel-title">Key priorities</h2>
+        <div id="priorities"></div>
+        <h2 class="panel-title spaced">Main trade-offs</h2>
+        <div id="tradeoffs"></div>
+      </div>
 
-      const answers = document.getElementById("answers");
-      answers.innerHTML = "";
+      <!-- Contradictions / tensions -->
+      <div class="panel" id="contradictions-panel">
+        <h2 class="panel-title">Tensions in your values</h2>
+        <div id="contradictions"></div>
+      </div>
 
-      ANSWERS.forEach(answer => {
-        const btn = document.createElement("button");
-        btn.innerText = answer.label;
-        btn.onclick = () => {
-          responses[current] = answer.value;
-          nextQuestion();
-        };
-        answers.appendChild(btn);
-      });
-    }
+      <!-- The detailed written analysis -->
+      <div class="panel">
+        <h2 class="panel-title" id="analysis-heading"></h2>
+        <div id="analysis" class="analysis"></div>
+      </div>
 
-    function nextQuestion() {
-      if (current < QUESTIONS.length - 1) {
-        current++;
-        showQuestion();
-      } else {
-        showResults();
-      }
-    }
+      <!-- Most influential answers -->
+      <div class="panel">
+        <h2 class="panel-title">The answers that shaped your result most</h2>
+        <div id="influences"></div>
+      </div>
 
-    function previousQuestion() {
-      if (current > 0) {
-        current--;
-        showQuestion();
-      }
-    }
+      <!-- Uncertain values -->
+      <div class="panel">
+        <h2 class="panel-title">Values that remained uncertain</h2>
+        <div id="uncertain"></div>
+      </div>
 
-    function showResults() {
-      document.getElementById("quiz").classList.add("hidden");
-      document.getElementById("results").classList.remove("hidden");
+      <p id="disclaimer" class="disclaimer"></p>
 
-      const userProfile = calculateUserProfile();
-      const scores = scoreParties(userProfile);
-      const best = scores[0];
+      <div class="results-actions">
+        <button id="btn-retake" class="btn btn-ghost" type="button">Retake the assessment</button>
+      </div>
+    </section>
 
-      document.getElementById("bestMatch").innerText = `${best.party} - ${best.percent}% match`;
+  </div>
 
-      document.getElementById("analysis").innerText =
-        `Your answers suggest your strongest priorities are ${describeProfile(userProfile)}. 
-        Your closest match is ${best.party}, based on how your values compare with the party profiles.`;
-    }
-
-    function calculateUserProfile() {
-      const profile = {};
-
-      QUESTIONS.forEach((q, i) => {
-        const answer = responses[i] ?? 0;
-
-        Object.entries(q.axes).forEach(([axis, weight]) => {
-          profile[axis] = (profile[axis] || 0) + answer * weight;
-        });
-      });
-
-      return profile;
-    }
-
-    function scoreParties(userProfile) {
-      return Object.entries(PARTIES)
-        .map(([party, data]) => {
-          const similarity = cosineSimilarity(userProfile, data.profile);
-          const finalScore = similarity * data.credibility;
-          return {
-            party,
-            score: finalScore,
-            percent: Math.max(0, Math.round(finalScore * 100))
-          };
-        })
-        .sort((a, b) => b.score - a.score);
-    }
-
-    function cosineSimilarity(a, b) {
-      const axes = new Set([...Object.keys(a), ...Object.keys(b)]);
-      let dot = 0;
-      let magA = 0;
-      let magB = 0;
-
-      axes.forEach(axis => {
-        const x = a[axis] || 0;
-        const y = b[axis] || 0;
-        dot += x * y;
-        magA += x * x;
-        magB += y * y;
-      });
-
-      if (magA === 0 || magB === 0) return 0;
-
-      return dot / (Math.sqrt(magA) * Math.sqrt(magB));
-    }
-
-    function describeProfile(profile) {
-      const sorted = Object.entries(profile)
-        .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-        .slice(0, 3)
-        .map(([axis]) => axis);
-
-      return sorted.join(", ");
-    }
-
-    function restart() {
-      current = 0;
-      responses = [];
-      document.getElementById("results").classList.add("hidden");
-      document.getElementById("intro").classList.remove("hidden");
-    }
-  </script>
+  <!-- Plain script tags (no modules) so the page also works when opened
+       directly from the filesystem via file:// -->
+  <script src="config.js"></script>
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
